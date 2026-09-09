@@ -1,5 +1,6 @@
 #!/bin/bash
 # not rebranding and not re-upload tanpa seizin pemilik!!
+
 set -e
 if [ "$EUID" -ne 0 ]; then
   echo -e "\e[31m[-] Error: Silakan jalankan skrip ini menggunakan akses Root (sudo)!\e[0m"
@@ -8,7 +9,7 @@ fi
 
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CB="\e[34m"; CC="\e[36m"; R="\e[0m"
 
-
+# Pastikan URL ini mengarah ke repositori GitHub Anda
 REPO_URL="https://raw.githubusercontent.com/sohivot/installer-athemes/main"
 
 clear
@@ -30,11 +31,17 @@ read -p "Silakan pilih opsi [0-8]: " OPTION
 case $OPTION in
   1|2|3|4|5|6)
     echo -e "\n${CY}[*] Mengunduh modul instalasi dari GitHub...${R}"
-    curl -sL "$REPO_URL/core.sh" | bash -s -- "$OPTION"
+    # Menggunakan metode temp file agar fungsi input (read) di dalam modul tidak terganggu
+    curl -sL "$REPO_URL/core.sh" -o /tmp/core.sh
+    bash /tmp/core.sh "$OPTION"
+    rm -f /tmp/core.sh
     ;;
   7)
     echo -e "\n${CY}[*] Mengunduh modul Uninstaller...${R}"
-    curl -sL "$REPO_URL/uninstall.sh" | bash
+    # Menggunakan metode temp file agar fungsi input (read) di dalam modul tidak terganggu
+    curl -sL "$REPO_URL/uninstall.sh" -o /tmp/uninstall.sh
+    bash /tmp/uninstall.sh
+    rm -f /tmp/uninstall.sh
     ;;
   8)
     clear
@@ -51,8 +58,7 @@ case $OPTION in
     echo -e " Bergabunglah dengan server Discord kami!"
     echo -e " ${CY}➔ Link Discord:${R} ${CG}https://discord.gg/LINK_DISCORD_KAMU_DISINI${R}"
     echo -e "${CB}==================================================${R}"
-    read -p "Tekan [Enter] untuk kembali ke menu utama..."
-    
+    read -p "Tekan [Enter] untuk kembali ke menu utama..." < /dev/tty
     bash "$0"
     ;;
   0)
