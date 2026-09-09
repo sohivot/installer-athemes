@@ -1,6 +1,6 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION)
+# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.1)
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -21,14 +21,14 @@ load_credentials() {
   if [ -f "$DB_FILE" ]; then
     source "$DB_FILE"
   else
-    echo -e "${CR}[-] File db.txt tidak ditemukan! Harap jalankan instalasi Full (Opsi 1) terlebih dahulu.${R}"
+    echo -e "${CR}[-] File db.txt tidak ditemukan! Harap jalankan instalasi Full (Opsi 1).${R}"
     exit 1
   fi
 }
 
 setup_swap() {
   if [ "$(free -m | awk '/^Swap:/ {print $2}')" -lt 2000 ] && [ ! -f /swapfile ]; then
-    echo -e "${CY}[*] Kapasitas RAM terbatas. Menambahkan Virtual RAM (Swap) 2GB...${R}"
+    echo -e "${CY}[*] Menambahkan Virtual RAM (Swap) 2GB...${R}"
     fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
     chmod 600 /swapfile; mkswap /swapfile; swapon /swapfile
   fi
@@ -36,13 +36,8 @@ setup_swap() {
 
 install_nodejs() {
   if ! command -v node > /dev/null; then
-    if [ "$PKG_MGR" == "apt" ]; then
-      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-      apt-get install -y nodejs
-    else
-      curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-      yum install -y nodejs
-    fi
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    $PKG_MGR install -y nodejs
   fi
   if ! command -v yarn > /dev/null; then
     npm install -g yarn
@@ -61,7 +56,6 @@ process_addon() {
   elif [ -f "$INPUT" ]; then
     unzip -o "$INPUT" -d /tmp/exeren_addon > /dev/null
   else
-    echo -e "${CR}[-] Input URL/Path tidak valid. Melewati instalasi Addon.${R}"
     return
   fi
   cp -r /tmp/exeren_addon/* "$PANEL_DIR/" 2>/dev/null || true
@@ -69,9 +63,8 @@ process_addon() {
     chmod +x /tmp/exeren_addon/install.sh
     cd /tmp/exeren_addon && bash install.sh
   fi
-  cd "$PANEL_DIR"
   rm -rf /tmp/exeren_addon
-  echo -e "${CG}[✓] File Addon Berhasil Disatukan!${R}"
+  echo -e "${CG}[✓] Addon Berhasil Disatukan!${R}"
 }
 
 # ==========================================
@@ -85,7 +78,7 @@ if [ "$OPTION" == "1" ]; then
     source "$DB_FILE"
   else
     echo -e "${CY}[*] SETUP PERTAMA - Kredensial akan disimpan di db.txt${R}"
-    read -p "    URL Panel (cth: https://panel.domain.com): " PANEL_URL
+    read -p "    URL Panel (cth: http://127.0.0.1): " PANEL_URL
     read -p "    Nama Database [panel]: " DB_NAME; DB_NAME=${DB_NAME:-panel}
     read -p "    Database Username [pterodactyl]: " DB_USER; DB_USER=${DB_USER:-pterodactyl}
     read -s -p "    Database Password: " DB_PASS; echo ""
@@ -109,13 +102,11 @@ EOF
   fi
 
   echo -e "\n${CY}[*] Memulai proses instalasi pada OS ${OS_NAME^^}...${R}"
-  mkdir -p "$PANEL_DIR"
   
-  echo -e "${CY}[*] Menginstal dependensi sistem...${R}"
   if [ "$PKG_MGR" == "apt" ]; then
-    apt-get update -y && apt-get install -y git rsync curl unzip mariadb-server nginx php-common php-cli php-gd php-mysql php-mbstring php-bcmath php-xml php-curl php-zip php-intl php-fpm certbot python3-certbot-nginx
+    apt-get update -y && apt-get install -y git rsync tar curl unzip mariadb-server nginx php-common php-cli php-gd php-mysql php-mbstring php-bcmath php-xml php-curl php-zip php-intl php-fpm certbot python3-certbot-nginx
   else
-    yum update -y && yum install -y epel-release git rsync curl unzip mariadb-server nginx php php-cli php-gd php-mysqlnd php-mbstring php-bcmath php-xml php-curl php-zip php-intl php-fpm certbot python3-certbot-nginx
+    yum update -y && yum install -y epel-release git rsync tar curl unzip mariadb-server nginx php php-cli php-gd php-mysqlnd php-mbstring php-bcmath php-xml php-curl php-zip php-intl php-fpm certbot python3-certbot-nginx
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
   fi
 
@@ -131,14 +122,22 @@ EOF
   mysql -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
   mysql -e "FLUSH PRIVILEGES;"
 
-  echo -e "${CY}[*] Mengunduh aset tema aThemes dari repositori...${R}"
+  # ====================================================
+  # BAGIAN YANG DIPERBAIKI: INSTALL CORE PTERODACTYL DULU
+  # ====================================================
+  echo -e "${CY}[*] Mengunduh File Inti Pterodactyl Panel...${R}"
+  mkdir -p "$PANEL_DIR"
+  curl -Lo /tmp/panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
+  tar -xzvf /tmp/panel.tar.gz -C "$PANEL_DIR"
+  rm -f /tmp/panel.tar.gz
+  
+  echo -e "${CY}[*] Menimpa dengan tema aThemes dari GitHub...${R}"
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
   
   cd "$PANEL_DIR"
-  mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache
-  chmod -R 755 storage bootstrap/cache
+  chmod -R 755 storage/* bootstrap/cache/ 2>/dev/null || true
   chown -R $WEB_USER:$WEB_USER storage bootstrap/cache
 
   [ ! -f ".env" ] && ([ -f ".env.example" ] && cp .env.example .env || touch .env)
@@ -147,13 +146,14 @@ EOF
   sed -i "s|DB_USERNAME=.*|DB_USERNAME=$DB_USER|" .env
   sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=$DB_PASS|" .env
 
+  echo -e "${CY}[*] Instalasi Composer (Backend)...${R}"
   composer install --no-dev --optimize-autoloader --no-interaction
   php artisan key:generate --force
   
   read -p "URL / Path Addon (Tekan Enter jika tidak ada): " ADDON_URL
   [ -n "$ADDON_URL" ] && process_addon "$ADDON_URL"
 
-  echo -e "${CY}[*] Memproses dan mengkompilasi aset UI...${R}"
+  echo -e "${CY}[*] Memproses dan mengkompilasi aset UI (Yarn Build)...${R}"
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
   
   echo -e "\n${CY}[*] Mengonfigurasi Nginx Server Block...${R}"
@@ -216,48 +216,38 @@ EOF
   
   echo -e "${CG}[✓] Instalasi Full aThemes berhasil diselesaikan!${R}"
 
+# ... [Opsi 2, 3, 4, 5, 6 tetap sama] ...
 elif [ "$OPTION" == "2" ]; then
-  echo -e "\n${CY}[*] Reset Database Pterodactyl...${R}"
   load_credentials
   mysql -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`; GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost'; FLUSH PRIVILEGES;"
   cd "$PANEL_DIR" && php artisan migrate:fresh --force
-  echo -e "${CG}[✓] Database berhasil direset ke kondisi awal!${R}"
-
+  echo -e "${CG}[✓] Database berhasil direset!${R}"
 elif [ "$OPTION" == "3" ]; then
-  echo -e "\n${CY}[*] Memulai proses pembaruan dan perbaikan antarmuka...${R}"
   cd "$PANEL_DIR" && setup_swap && install_nodejs
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
-  echo -e "${CY}[*] Sedang membangun ulang aset (Rebuild UI)...${R}"
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
   php artisan view:clear && php artisan optimize:clear
   chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
-  echo -e "${CG}[✓] Antarmuka panel berhasil diperbarui dan disegarkan.${R}"
-
+  echo -e "${CG}[✓] UI Berhasil di-rebuild.${R}"
 elif [ "$OPTION" == "4" ]; then
-  echo -e "\n${CY}[*] Memperbarui Wings Daemon...${R}"
   systemctl stop wings || true
   curl -L -o /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
   chmod +x /usr/local/bin/wings
   systemctl start wings
-  echo -e "${CG}[✓] Wings berhasil diperbarui ke versi terbaru!${R}"
-
+  echo -e "${CG}[✓] Wings diperbarui!${R}"
 elif [ "$OPTION" == "5" ]; then
-  echo -e "\n${CY}[*] Menghapus Cache Konfigurasi...${R}"
   rm -f "$DB_FILE"
-  echo -e "${CG}[✓] File db.txt berhasil dihapus. Silakan jalankan Instalasi (1) untuk setup baru.${R}"
-
+  echo -e "${CG}[✓] File db.txt berhasil dihapus.${R}"
 elif [ "$OPTION" == "6" ]; then
-  echo -e "\n${CC}[*] SMART ADDON ENGINE...${R}"
   read -p "URL / Path Addon (.zip): " ADDON_URL
   if [ -n "$ADDON_URL" ]; then
     process_addon "$ADDON_URL"
     cd "$PANEL_DIR" && setup_swap && install_nodejs
-    echo -e "${CY}[*] Kompilasi ulang UI...${R}"
     yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
     php artisan optimize:clear
     chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
-    echo -e "${CG}[✓] Addon Kustom Berhasil Dipasang dan Dikompilasi!${R}"
+    echo -e "${CG}[✓] Addon Dipasang!${R}"
   fi
 fi
