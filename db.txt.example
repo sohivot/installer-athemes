@@ -1,0 +1,14 @@
+# ==========================================
+# FILE CACHE INSTALLER ATHEMES (db.txt)
+# open source & easy control
+# ==========================================
+
+PANEL_URL="https://panel.domainmu.com"
+DB_NAME="rensth"
+DB_USER="rensth"
+DB_PASS="rensth123"
+ADMIN_EMAIL="admin@domainmu.com"
+ADMIN_USER="admin"
+ADMIN_FIRST="NamaDepan"
+ADMIN_LAST="NamaBelakang"
+ADMIN_PASS="12345"
