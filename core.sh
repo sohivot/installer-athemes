@@ -17,12 +17,43 @@ else
   PKG_MGR="yum"; WEB_USER="nginx"; NGINX_CONF="/etc/nginx/conf.d"
 fi
 
+# ==========================================
+# FUNGSI BARU v3.1: AUTO-CREATE db.txt
+# ==========================================
+create_credentials() {
+  mkdir -p "$ATHEMES_DIR"
+  echo -e "\n${CY}[*] DATA db.txt BELUM ADA - Silakan isi data berikut (otomatis disimpan):${R}"
+  read -p "    URL Panel (cth: http://127.0.0.1): " PANEL_URL
+  read -p "    Nama Database [panel]: " DB_NAME; DB_NAME=${DB_NAME:-panel}
+  read -p "    Database Username [pterodactyl]: " DB_USER; DB_USER=${DB_USER:-pterodactyl}
+  read -s -p "    Database Password: " DB_PASS; echo ""
+  read -p "    Email Admin: " ADMIN_EMAIL
+  read -p "    Username Admin: " ADMIN_USER
+  read -p "    Nama Depan Admin: " ADMIN_FIRST
+  read -p "    Nama Belakang Admin: " ADMIN_LAST
+  read -s -p "    Password Admin: " ADMIN_PASS; echo ""
+  
+  cat << EOF > "$DB_FILE"
+PANEL_URL="$PANEL_URL"
+DB_NAME="$DB_NAME"
+DB_USER="$DB_USER"
+DB_PASS="$DB_PASS"
+ADMIN_EMAIL="$ADMIN_EMAIL"
+ADMIN_USER="$ADMIN_USER"
+ADMIN_FIRST="$ADMIN_FIRST"
+ADMIN_LAST="$ADMIN_LAST"
+ADMIN_PASS="$ADMIN_PASS"
+EOF
+  echo -e "${CG}[✓] Data berhasil disimpan otomatis ke $DB_FILE${R}\n"
+}
+
 load_credentials() {
   if [ -f "$DB_FILE" ]; then
+    echo -e "${CG}[✓] Menggunakan data dari $DB_FILE${R}"
     source "$DB_FILE"
   else
-    echo -e "${CR}[-] File db.txt tidak ditemukan! Harap jalankan instalasi Full (Opsi 1).${R}"
-    exit 1
+    # Jika file tidak ada, panggil fungsi pembuatan otomatis!
+    create_credentials
   fi
 }
 
@@ -72,36 +103,10 @@ process_addon() {
 # ==========================================
 
 if [ "$OPTION" == "1" ]; then
-  mkdir -p "$ATHEMES_DIR"
-  if [ -f "$DB_FILE" ]; then
-    echo -e "${CG}[✓] Menggunakan kredensial dari $DB_FILE${R}"
-    source "$DB_FILE"
-  else
-    echo -e "${CY}[*] SETUP PERTAMA - Kredensial akan disimpan di db.txt${R}"
-    read -p "    URL Panel (cth: http://127.0.0.1): " PANEL_URL
-    read -p "    Nama Database [panel]: " DB_NAME; DB_NAME=${DB_NAME:-panel}
-    read -p "    Database Username [pterodactyl]: " DB_USER; DB_USER=${DB_USER:-pterodactyl}
-    read -s -p "    Database Password: " DB_PASS; echo ""
-    read -p "    Email Admin: " ADMIN_EMAIL
-    read -p "    Username Admin: " ADMIN_USER
-    read -p "    Nama Depan Admin: " ADMIN_FIRST
-    read -p "    Nama Belakang Admin: " ADMIN_LAST
-    read -s -p "    Password Admin: " ADMIN_PASS; echo ""
-    
-    cat << EOF > "$DB_FILE"
-PANEL_URL="$PANEL_URL"
-DB_NAME="$DB_NAME"
-DB_USER="$DB_USER"
-DB_PASS="$DB_PASS"
-ADMIN_EMAIL="$ADMIN_EMAIL"
-ADMIN_USER="$ADMIN_USER"
-ADMIN_FIRST="$ADMIN_FIRST"
-ADMIN_LAST="$ADMIN_LAST"
-ADMIN_PASS="$ADMIN_PASS"
-EOF
-  fi
+  # Memuat data (jika tidak ada, otomatis bikin baru!)
+  load_credentials
 
-  echo -e "\n${CY}[*] Memulai proses instalasi pada OS ${OS_NAME^^}...${R}"
+  echo -e "${CY}[*] Memulai proses instalasi pada OS ${OS_NAME^^}...${R}"
   
   if [ "$PKG_MGR" == "apt" ]; then
     apt-get update -y && apt-get install -y git rsync tar curl unzip mariadb-server nginx php-common php-cli php-gd php-mysql php-mbstring php-bcmath php-xml php-curl php-zip php-intl php-fpm certbot python3-certbot-nginx
@@ -122,9 +127,6 @@ EOF
   mysql -e "ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
   mysql -e "FLUSH PRIVILEGES;"
 
-  # ====================================================
-  # BAGIAN YANG DIPERBAIKI: INSTALL CORE PTERODACTYL DULU
-  # ====================================================
   echo -e "${CY}[*] Mengunduh File Inti Pterodactyl Panel...${R}"
   mkdir -p "$PANEL_DIR"
   curl -Lo /tmp/panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
@@ -216,12 +218,15 @@ EOF
   
   echo -e "${CG}[✓] Instalasi Full aThemes berhasil diselesaikan!${R}"
 
-# ... [Opsi 2, 3, 4, 5, 6 tetap sama] ...
 elif [ "$OPTION" == "2" ]; then
+  # Memuat data (jika tidak ada, otomatis bikin baru!)
   load_credentials
+  
+  echo -e "\n${CY}[*] Mereset Database Pterodactyl...${R}"
   mysql -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`; GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost'; FLUSH PRIVILEGES;"
   cd "$PANEL_DIR" && php artisan migrate:fresh --force
   echo -e "${CG}[✓] Database berhasil direset!${R}"
+
 elif [ "$OPTION" == "3" ]; then
   cd "$PANEL_DIR" && setup_swap && install_nodejs
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
@@ -231,15 +236,18 @@ elif [ "$OPTION" == "3" ]; then
   php artisan view:clear && php artisan optimize:clear
   chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
   echo -e "${CG}[✓] UI Berhasil di-rebuild.${R}"
+
 elif [ "$OPTION" == "4" ]; then
   systemctl stop wings || true
   curl -L -o /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
   chmod +x /usr/local/bin/wings
   systemctl start wings
   echo -e "${CG}[✓] Wings diperbarui!${R}"
+
 elif [ "$OPTION" == "5" ]; then
   rm -f "$DB_FILE"
   echo -e "${CG}[✓] File db.txt berhasil dihapus.${R}"
+
 elif [ "$OPTION" == "6" ]; then
   read -p "URL / Path Addon (.zip): " ADDON_URL
   if [ -n "$ADDON_URL" ]; then
