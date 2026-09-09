@@ -1,9 +1,5 @@
 #!/bin/bash
-# =======================================================
-# PTERODACTYL aTHEMES MASTER INSTALLER (v3.0 MODULAR)
-# Cross-Platform & Modular Engine
-# =======================================================
-
+# not rebranding and not re-upload tanpa seizin pemilik!!
 set -e
 if [ "$EUID" -ne 0 ]; then
   echo -e "\e[31m[-] Error: Silakan jalankan skrip ini menggunakan akses Root (sudo)!\e[0m"
@@ -12,7 +8,7 @@ fi
 
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CB="\e[34m"; CC="\e[36m"; R="\e[0m"
 
-# Pastikan URL ini mengarah ke repositori GitHub Anda
+
 REPO_URL="https://raw.githubusercontent.com/sohivot/installer-athemes/main"
 
 clear
@@ -25,7 +21,8 @@ echo -e " ${CY}[3]${R} Update Tema aThemes & Rebuild UI"
 echo -e " ${CY}[4]${R} Update Wings Daemon ke Versi Terbaru"
 echo -e " ${CY}[5]${R} Hapus Cache Konfigurasi (Reset db.txt)"
 echo -e " ${CC}[6]${R} Pasang Addon Kustom (Membutuhkan URL/Path .zip)"
-echo -e " ${CR}[8]${R} Menu Uninstall & Ganti Tema (Revert ke Original)"
+echo -e " ${CR}[7]${R} Menu Uninstall & Ganti Tema (Revert ke Original)"
+echo -e " ${CB}[8]${R} Credits & Komunitas Discord (Informasi Sistem)"
 echo -e " ${CR}[0]${R} Keluar dari Installer"
 echo -e "${CB}==================================================${R}"
 read -p "Silakan pilih opsi [0-8]: " OPTION
@@ -35,9 +32,28 @@ case $OPTION in
     echo -e "\n${CY}[*] Mengunduh modul instalasi dari GitHub...${R}"
     curl -sL "$REPO_URL/core.sh" | bash -s -- "$OPTION"
     ;;
-  8)
+  7)
     echo -e "\n${CY}[*] Mengunduh modul Uninstaller...${R}"
     curl -sL "$REPO_URL/uninstall.sh" | bash
+    ;;
+  8)
+    clear
+    echo -e "${CB}==================================================${R}"
+    echo -e "${CC}               CREDITS & INFORMASI                ${R}"
+    echo -e "${CB}==================================================${R}"
+    echo -e " ${CY}Tema Kustom (aThemes):${R} Dikembangkan oleh ${CG}AlnoXD404${R} & ${CG}Exeren${R}"
+    echo -e " ${CY}Sistem Installer:${R} Dirancang & Dikembangkan oleh ${CG}Exeren${R}"
+    echo -e "\n ${CC}Proyek ini bersifat 100% Open Source.${R}"
+    echo -e " Kami percaya pada kebebasan berbagi dan berkolaborasi."
+    echo -e " Anda bebas memodifikasi, menggunakan, dan mempelajari kode ini."
+    echo -e "\n ${CB}[ Komunitas & Bantuan ]${R}"
+    echo -e " Punya pertanyaan, kendala, atau ingin ikut mabar (main bareng)?"
+    echo -e " Bergabunglah dengan server Discord kami!"
+    echo -e " ${CY}➔ Link Discord:${R} ${CG}https://discord.gg/LINK_DISCORD_KAMU_DISINI${R}"
+    echo -e "${CB}==================================================${R}"
+    read -p "Tekan [Enter] untuk kembali ke menu utama..."
+    
+    bash "$0"
     ;;
   0)
     echo -e "${CG}Terima kasih telah menggunakan layanan kami.${R}"
@@ -45,5 +61,7 @@ case $OPTION in
     ;;
   *)
     echo -e "${CR}[-] Pilihan tidak valid, silakan coba lagi.${R}"
+    sleep 1
+    bash "$0"
     ;;
 esac
