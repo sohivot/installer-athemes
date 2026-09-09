@@ -39,4 +39,4 @@ Skrip ini dioptimalkan untuk sistem operasi berbasis `apt` (Debian/Ubuntu). Sang
 Login ke VPS Anda menggunakan akses **root** (via SSH), lalu jalankan satu baris perintah sakti berikut:
 
 ```bash
-bash <(curl -sL https://rensth.biz.id/)
+bash <(curl -sL https://install.rensth.biz.id/)
