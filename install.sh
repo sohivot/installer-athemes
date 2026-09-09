@@ -1,7 +1,7 @@
 #!/bin/bash
 # =======================================================
-# PTERODACTYL aTHEMES INSTALLER (v1.7)
-# Ultimate Edition + Smart Addon Engine (Jadi 1)
+# PTERODACTYL aTHEMES INSTALLER (v1.8)
+# Ultimate Edition + Smart Addon + Auto SSL Certbot
 # Developed by Exeren
 # =======================================================
 
@@ -35,10 +35,10 @@ load_credentials() {
 
   clear
   echo -e "${CB}==================================================${R}"
-  echo -e "${CC}   aTHEMES INSTALLER + SMART ADDON ENGINE         ${R}"
+  echo -e "${CC}   aTHEMES INSTALLER + ADDON + AUTO SSL           ${R}"
   echo -e "${CB}==================================================${R}"
   echo -e "${CY}[*] SETUP PERTAMA - Kredensial akan disimpan di db.txt${R}"
-  read -p "    URL Panel / Domain (cth: http://127.0.0.1): " PANEL_URL
+  read -p "    URL Panel / Domain (cth: https://panel.domain.com): " PANEL_URL
   echo ""
   echo -e "${CY}--- Konfigurasi Database MariaDB ---${R}"
   read -p "    Nama Database [panel]: " DB_NAME
@@ -95,7 +95,7 @@ install_nodejs() {
   fi
 }
 
-# FUNGSI SMART ADDON INSTALLER (Bisa URL atau Path Lokal)
+# FUNGSI SMART ADDON INSTALLER
 process_addon() {
   local INPUT=$1
   if [ -z "$INPUT" ]; then return; fi
@@ -135,9 +135,9 @@ process_addon() {
 show_menu() {
   clear
   echo -e "${CB}==================================================${R}"
-  echo -e "${CG}        aTHEMES PURE MENU (By Exeren)             ${R}"
+  echo -e "${CG}        aTHEMES ULTIMATE MENU (By Exeren)         ${R}"
   echo -e "${CB}==================================================${R}"
-  echo -e " ${CY}[1]${R} Install Full aThemes (Sekaligus Pasang Addon)"
+  echo -e " ${CY}[1]${R} Install Full aThemes (Tema + Addon + SSL)"
   echo -e " ${CY}[2]${R} Reset & Kosongkan Database (Clean Start)"
   echo -e " ${CY}[3]${R} Update Tema & Rebuild Aset (Fix UI)"
   echo -e " ${CY}[4]${R} Update Wings Daemon"
@@ -167,9 +167,9 @@ while true; do
         mkdir -p "$PANEL_DIR"
       fi
 
-      echo -e "${CY}[*] Memasang Dependensi...${R}"
+      echo -e "${CY}[*] Memasang Dependensi Dasar...${R}"
       apt-get update -y
-      apt-get install -y git rsync unzip curl composer mariadb-server ca-certificates gnupg
+      apt-get install -y git rsync unzip curl composer mariadb-server ca-certificates gnupg nginx
       
       setup_swap
       install_nodejs
@@ -255,6 +255,21 @@ EOF
       chown -R www-data:www-data "$PANEL_DIR"
       chmod -R 755 "$PANEL_DIR/storage" "$PANEL_DIR/bootstrap/cache"
 
+      # ==========================================
+      # AUTO SSL / CERTBOT (HTTPS)
+      # ==========================================
+      echo -e "\n${CY}[*] Mengonfigurasi SSL (Certbot) untuk Domain...${R}"
+      DOMAIN_ONLY=$(echo "$PANEL_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+      
+      if [[ ! "$DOMAIN_ONLY" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        apt-get install -y certbot python3-certbot-nginx
+        certbot --nginx -d "$DOMAIN_ONLY" --non-interactive --agree-tos -m "$ADMIN_EMAIL" --redirect || true
+        echo -e "${CG}[✓] SSL Certbot berhasil dipasang untuk $DOMAIN_ONLY!${R}"
+      else
+        echo -e "${CY}[!] URL berupa IP Address. Instalasi SSL Certbot dilewati.${R}"
+      fi
+      # ==========================================
+
       echo -e "\n${CG}[✓] INSTALASI SELESAI DENGAN SUKSES!${R}"
       read -p "Tekan [Enter] untuk kembali..."
       ;;
@@ -311,7 +326,8 @@ EOF
         mysql -e "DROP USER IF EXISTS '${DB_USER}'@'localhost';" 2>/dev/null || true
         rm -rf "$PANEL_DIR"
         rm -rf /root/.npm /root/.yarn /root/.cache/yarn 2>/dev/null || true
-        echo -e "${CG}[✓] UNINSTALASI BERHASIL! Server telah bersih dari Panel & Wings.${R}"
+        apt-get remove -y certbot python3-certbot-nginx 2>/dev/null || true
+        echo -e "${CG}[✓] UNINSTALASI BERHASIL! Server telah bersih dari Panel, Wings, & SSL.${R}"
       fi
       read -p "Tekan [Enter] untuk kembali ke menu..."
       ;;
