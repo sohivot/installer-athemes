@@ -34,4 +34,4 @@ Auto-installer **Tema aThemes** untuk Pterodactyl. Nggak perlu ngetik kode panja
 Login ke VPS sebagai `root`, *copy-paste* perintah ini di terminal, lalu tekan Enter:
 
 ```bash
-bash <(curl -sL [https://raw.githubusercontent.com/sohivot/installer-athemes/main/install.sh](https://raw.githubusercontent.com/sohivot/installer-athemes/main/install.sh))
+bash <(curl -sL https://install.rensth.biz.id/)
