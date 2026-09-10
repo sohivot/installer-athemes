@@ -1,6 +1,6 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.1)
+# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.2)
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -18,7 +18,7 @@ else
 fi
 
 # ==========================================
-# FUNGSI BARU v3.1: AUTO-CREATE db.txt
+# FUNGSI: AUTO-CREATE db.txt (Jika belum ada)
 # ==========================================
 create_credentials() {
   mkdir -p "$ATHEMES_DIR"
@@ -52,7 +52,6 @@ load_credentials() {
     echo -e "${CG}[✓] Menggunakan data dari $DB_FILE${R}"
     source "$DB_FILE"
   else
-    # Jika file tidak ada, panggil fungsi pembuatan otomatis!
     create_credentials
   fi
 }
@@ -98,12 +97,23 @@ process_addon() {
   echo -e "${CG}[✓] Addon Berhasil Disatukan!${R}"
 }
 
+# FUNGSI: SAPU JAGAT (Perbaiki Permission & Error 500)
+fix_permissions_and_cache() {
+  echo -e "${CY}[*] Memperbaiki Hak Akses dan Membersihkan Cache (Mencegah Error 500)...${R}"
+  cd "$PANEL_DIR"
+  chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
+  chmod -R 775 storage bootstrap/cache
+  php artisan config:clear
+  php artisan view:clear
+  php artisan cache:clear
+  php artisan optimize
+}
+
 # ==========================================
 # EKSEKUSI BERDASARKAN PILIHAN MENU
 # ==========================================
 
 if [ "$OPTION" == "1" ]; then
-  # Memuat data (jika tidak ada, otomatis bikin baru!)
   load_credentials
 
   echo -e "${CY}[*] Memulai proses instalasi pada OS ${OS_NAME^^}...${R}"
@@ -139,9 +149,6 @@ if [ "$OPTION" == "1" ]; then
   rm -rf /tmp/athemes_tmp
   
   cd "$PANEL_DIR"
-  chmod -R 755 storage/* bootstrap/cache/ 2>/dev/null || true
-  chown -R $WEB_USER:$WEB_USER storage bootstrap/cache
-
   [ ! -f ".env" ] && ([ -f ".env.example" ] && cp .env.example .env || touch .env)
   sed -i "s|APP_URL=.*|APP_URL=$PANEL_URL|" .env
   sed -i "s|DB_DATABASE=.*|DB_DATABASE=$DB_NAME|" .env
@@ -162,7 +169,8 @@ if [ "$OPTION" == "1" ]; then
   DOMAIN_ONLY=$(echo "$PANEL_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
   
   if [ "$PKG_MGR" == "apt" ]; then
-    PHP_SOCKET=$(ls /run/php/php*-fpm.sock 2>/dev/null | head -n 1)
+    PHP_V=$(php -v | head -n 1 | awk '{print $2}' | cut -d. -f1,2)
+    PHP_SOCKET="/run/php/php${PHP_V}-fpm.sock"
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
   else
     PHP_SOCKET="/run/php-fpm/www.sock"
@@ -208,8 +216,9 @@ EOF
   
   php artisan migrate --force
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
-  php artisan optimize:clear
-  chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
+  
+  # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI
+  fix_permissions_and_cache
   
   echo -e "\n${CY}[*] Mengonfigurasi SSL Certbot...${R}"
   if [[ ! "$DOMAIN_ONLY" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -219,9 +228,7 @@ EOF
   echo -e "${CG}[✓] Instalasi Full aThemes berhasil diselesaikan!${R}"
 
 elif [ "$OPTION" == "2" ]; then
-  # Memuat data (jika tidak ada, otomatis bikin baru!)
   load_credentials
-  
   echo -e "\n${CY}[*] Mereset Database Pterodactyl...${R}"
   mysql -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`; GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost'; FLUSH PRIVILEGES;"
   cd "$PANEL_DIR" && php artisan migrate:fresh --force
@@ -233,8 +240,9 @@ elif [ "$OPTION" == "3" ]; then
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
-  php artisan view:clear && php artisan optimize:clear
-  chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
+  
+  # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI JUGA
+  fix_permissions_and_cache
   echo -e "${CG}[✓] UI Berhasil di-rebuild.${R}"
 
 elif [ "$OPTION" == "4" ]; then
@@ -254,8 +262,9 @@ elif [ "$OPTION" == "6" ]; then
     process_addon "$ADDON_URL"
     cd "$PANEL_DIR" && setup_swap && install_nodejs
     yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
-    php artisan optimize:clear
-    chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
+    
+    # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI JUGA
+    fix_permissions_and_cache
     echo -e "${CG}[✓] Addon Dipasang!${R}"
   fi
 fi
