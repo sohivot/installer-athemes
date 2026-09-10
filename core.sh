@@ -1,6 +1,6 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.2)
+# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.3)
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -97,16 +97,23 @@ process_addon() {
   echo -e "${CG}[✓] Addon Berhasil Disatukan!${R}"
 }
 
-# FUNGSI: SAPU JAGAT (Perbaiki Permission & Error 500)
+# FUNGSI: SAPU JAGAT (Perbaiki Permission, Error 500, & Login Error)
 fix_permissions_and_cache() {
-  echo -e "${CY}[*] Memperbaiki Hak Akses dan Membersihkan Cache (Mencegah Error 500)...${R}"
+  echo -e "${CY}[*] Memperbaiki Hak Akses dan Membersihkan Cache Sistem...${R}"
   cd "$PANEL_DIR"
   chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
   chmod -R 775 storage bootstrap/cache
-  php artisan config:clear
+  
+  # Mencegah Session Bentrok (Kotak Merah Saat Login)
+  rm -rf storage/framework/sessions/* 2>/dev/null || true
+  
   php artisan view:clear
+  php artisan config:clear
   php artisan cache:clear
-  php artisan optimize
+  php artisan optimize:clear
+  
+  # Pastikan file cache baru kembali dimiliki oleh web server
+  chown -R $WEB_USER:$WEB_USER storage bootstrap/cache
 }
 
 # ==========================================
@@ -217,7 +224,7 @@ EOF
   php artisan migrate --force
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
   
-  # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI
+  # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI
   fix_permissions_and_cache
   
   echo -e "\n${CY}[*] Mengonfigurasi SSL Certbot...${R}"
@@ -241,7 +248,7 @@ elif [ "$OPTION" == "3" ]; then
   rm -rf /tmp/athemes_tmp
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
   
-  # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI JUGA
+  # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI JUGA
   fix_permissions_and_cache
   echo -e "${CG}[✓] UI Berhasil di-rebuild.${R}"
 
@@ -263,7 +270,7 @@ elif [ "$OPTION" == "6" ]; then
     cd "$PANEL_DIR" && setup_swap && install_nodejs
     yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
     
-    # PERBAIKAN ERROR 500 DIMASUKKAN DI SINI JUGA
+    # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI JUGA
     fix_permissions_and_cache
     echo -e "${CG}[✓] Addon Dipasang!${R}"
   fi
