@@ -1,6 +1,7 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (FULL VERSION V3.3)
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.1)
+# FITUR: Auto-Setup Node, Fix Permissions, Eggs, & Y/N Prompt
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -112,7 +113,7 @@ fix_permissions_and_cache() {
   php artisan cache:clear
   php artisan optimize:clear
   
-  # Pastikan file cache baru kembali dimiliki oleh web server
+  # Kunci lagi hak aksesnya pasca-optimize (Mencegah Error 500)
   chown -R $WEB_USER:$WEB_USER storage bootstrap/cache
 }
 
@@ -151,6 +152,8 @@ if [ "$OPTION" == "1" ]; then
   rm -f /tmp/panel.tar.gz
   
   echo -e "${CY}[*] Menimpa dengan tema aThemes dari GitHub...${R}"
+  cd /tmp 
+  rm -rf /tmp/athemes_tmp
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
@@ -169,8 +172,14 @@ if [ "$OPTION" == "1" ]; then
   composer install --no-dev --optimize-autoloader --no-interaction
   php artisan key:generate --force
   
-  read -p "URL / Path Addon (Tekan Enter jika tidak ada): " ADDON_URL
-  [ -n "$ADDON_URL" ] && process_addon "$ADDON_URL"
+  # --- PERTANYAAN Y/N UNTUK ADDON ---
+  echo -e ""
+  read -p "Apakah Anda ingin memasang Addon kustom? (y/n): " ASK_ADDON
+  if [[ "$ASK_ADDON" == "y" || "$ASK_ADDON" == "Y" ]]; then
+    read -p "Masukkan URL / Path Addon (.zip): " ADDON_URL
+    [ -n "$ADDON_URL" ] && process_addon "$ADDON_URL"
+  fi
+  # ----------------------------------
 
   echo -e "${CY}[*] Memproses dan mengkompilasi aset UI (Yarn Build)...${R}"
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
@@ -224,10 +233,47 @@ EOF
   if [ "$PKG_MGR" == "yum" ]; then systemctl enable php-fpm && systemctl start php-fpm; fi
   systemctl enable nginx && systemctl restart nginx
   
+  # --- AUTO SETUP LOCATION & NODE ---
+  echo -e "\n${CY}[*] Menyiapkan Database, Akun Admin, dan Auto-Setup Node...${R}"
   php artisan migrate --force
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
   
-  # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI
+  cat << EOF > /var/www/pterodactyl/auto_setup.php
+<?php
+\$loc = \Pterodactyl\Models\Location::firstOrCreate(
+    ['short' => 'ID-1'],
+    ['long' => 'Indonesia Server']
+);
+\$node = \Pterodactyl\Models\Node::firstOrCreate(
+    ['name' => 'Node-01'],
+    [
+        'description' => 'Node Otomatis dari Installer',
+        'location_id' => \$loc->id,
+        'public' => 1,
+        'fqdn' => '$DOMAIN_ONLY',
+        'scheme' => 'http',
+        'behind_proxy' => 0,
+        'memory' => 4096,
+        'memory_overallocate' => 0,
+        'disk' => 40960,
+        'disk_overallocate' => 0,
+        'daemon_listen' => 8080,
+        'daemon_sftp' => 2022,
+        'daemonBase' => '/var/lib/pterodactyl/volumes',
+    ]
+);
+for (\$port = 25565; \$port <= 25575; \$port++) {
+    \Pterodactyl\Models\Allocation::firstOrCreate([
+        'node_id' => \$node->id,
+        'ip' => '0.0.0.0',
+        'port' => \$port
+    ]);
+}
+EOF
+  php artisan tinker < /var/www/pterodactyl/auto_setup.php
+  rm -f /var/www/pterodactyl/auto_setup.php
+  
+  # JURUS SAPU JAGAT DIPANGGIL DI SINI
   fix_permissions_and_cache
   
   echo -e "\n${CY}[*] Mengonfigurasi SSL Certbot...${R}"
@@ -235,8 +281,11 @@ EOF
     certbot --nginx -d "$DOMAIN_ONLY" --non-interactive --agree-tos -m "$ADMIN_EMAIL" --redirect || true
   fi
   
-  echo -e "${CG}[✓] Instalasi Full aThemes berhasil diselesaikan!${R}"
+  echo -e "${CG}[✓] Instalasi Full aThemes berhasil diselesaikan! Panel Siap Pakai!${R}"
 
+# ==========================================
+# OPSI 2: RESET DATABASE
+# ==========================================
 elif [ "$OPTION" == "2" ]; then
   load_credentials
   echo -e "\n${CY}[*] Mereset Database Pterodactyl...${R}"
@@ -244,41 +293,69 @@ elif [ "$OPTION" == "2" ]; then
   cd "$PANEL_DIR" && php artisan migrate:fresh --force
   echo -e "${CG}[✓] Database berhasil direset!${R}"
 
+# ==========================================
+# OPSI 3: UPDATE / REBUILD TEMA UI
+# ==========================================
 elif [ "$OPTION" == "3" ]; then
   cd "$PANEL_DIR" && setup_swap && install_nodejs
+  
+  cd /tmp 
+  rm -rf /tmp/athemes_tmp
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
   
-  # --- FIX TEKS BUNGLON DI FORM LOGIN ---
   sed -i 's|</head>|<style>input, input:focus { color: #1f2937 !important; }</style></head>|g' "$PANEL_DIR/resources/views/templates/wrapper.blade.php"
   
+  cd "$PANEL_DIR"
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
   
-  # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI JUGA
   fix_permissions_and_cache
   echo -e "${CG}[✓] UI Berhasil di-rebuild.${R}"
 
+# ==========================================
+# OPSI 4: INSTALL WINGS
+# ==========================================
 elif [ "$OPTION" == "4" ]; then
   systemctl stop wings || true
   curl -L -o /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
   chmod +x /usr/local/bin/wings
   systemctl start wings
-  echo -e "${CG}[✓] Wings diperbarui!${R}"
+  echo -e "${CG}[✓] Wings diperbarui/diinstall!${R}"
 
+# ==========================================
+# OPSI 5: HAPUS KREDENSIAL db.txt
+# ==========================================
 elif [ "$OPTION" == "5" ]; then
   rm -f "$DB_FILE"
   echo -e "${CG}[✓] File db.txt berhasil dihapus.${R}"
 
+# ==========================================
+# OPSI 6: INSTALL ADDON CUSTOM (.zip)
+# ==========================================
 elif [ "$OPTION" == "6" ]; then
-  read -p "URL / Path Addon (.zip): " ADDON_URL
+  read -p "Masukkan URL / Path Addon (.zip): " ADDON_URL
   if [ -n "$ADDON_URL" ]; then
     process_addon "$ADDON_URL"
     cd "$PANEL_DIR" && setup_swap && install_nodejs
     yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
     
-    # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI JUGA
     fix_permissions_and_cache
     echo -e "${CG}[✓] Addon Dipasang!${R}"
+  fi
+
+# ==========================================
+# OPSI 7: INSTALL DEFAULT EGGS PTERODACTYL
+# ==========================================
+elif [ "$OPTION" == "7" ]; then
+  echo -e "\n${CY}[*] Mengunduh dan Menyuntikkan Nests & Eggs Bawaan Pterodactyl...${R}"
+  
+  if [ -d "$PANEL_DIR" ]; then
+    cd "$PANEL_DIR"
+    php artisan db:seed --force
+    php artisan cache:clear
+    echo -e "${CG}[✓] Sukses! Semua Eggs bawaan (Minecraft, Rust, SA:MP, dll) telah ditambahkan ke panel.${R}"
+  else
+    echo -e "${CR}[!] Error: Pterodactyl belum terinstal di server ini! Jalankan Opsi 1 dulu.${R}"
   fi
 fi
