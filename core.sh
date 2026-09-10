@@ -1,13 +1,15 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.2)
-# FITUR: Auto-Setup Node, Fix Permissions, Y/N Uninstall,debug mode, fixed env pterodactyl and athemes
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.4)
+# FITUR: Auto-Setup Node, Fix Permissions, Safe DB Location
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
+
 PANEL_DIR="/var/www/pterodactyl"
-ATHEMES_DIR="/var/www/athemes"
-DB_FILE="$ATHEMES_DIR/db.txt"
+# Lokasi aman baru di folder home user (contoh: /root/.athemes_installer/db.txt)
+DB_DIR="$HOME/.athemes_installer"
+DB_FILE="$DB_DIR/db.txt"
 
 # OS Detection Engine
 . /etc/os-release
@@ -22,8 +24,8 @@ fi
 # FUNGSI: AUTO-CREATE db.txt (Jika belum ada)
 # ==========================================
 create_credentials() {
-  mkdir -p "$ATHEMES_DIR"
-  echo -e "\n${CY}[*] DATA db.txt BELUM ADA - Silakan isi data berikut (otomatis disimpan):${R}"
+  mkdir -p "$DB_DIR"
+  echo -e "\n${CY}[*] DATA db.txt BELUM ADA - Silakan isi data berikut (otomatis disimpan ke $DB_FILE):${R}"
   read -p "    URL Panel (cth: http://127.0.0.1): " PANEL_URL
   read -p "    Nama Database [panel]: " DB_NAME; DB_NAME=${DB_NAME:-panel}
   read -p "    Database Username [pterodactyl]: " DB_USER; DB_USER=${DB_USER:-pterodactyl}
@@ -305,7 +307,7 @@ elif [ "$OPTION" == "4" ]; then
 
 elif [ "$OPTION" == "5" ]; then
   rm -f "$DB_FILE"
-  echo -e "${CG}[✓] File db.txt berhasil dihapus.${R}"
+  echo -e "${CG}[✓] File db.txt berhasil dihapus dari $DB_DIR.${R}"
 
 elif [ "$OPTION" == "6" ]; then
   read -p "Masukkan URL / Path Addon (.zip): " ADDON_URL
@@ -350,7 +352,7 @@ elif [ "$OPTION" == "8" ]; then
       echo -e "\n${CY}[*] Menghapus File Panel & Web Server...${R}"
       systemctl stop pteroq 2>/dev/null
       rm -rf /var/www/pterodactyl
-      rm -rf /var/www/athemes
+      rm -rf /var/www/athemes # Menghapus folder sisa installer versi lama
       rm -f /etc/nginx/sites-available/pterodactyl.conf
       rm -f /etc/nginx/sites-enabled/pterodactyl.conf
       rm -f /etc/nginx/conf.d/pterodactyl.conf
