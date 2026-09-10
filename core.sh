@@ -1,7 +1,7 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.6)
-# FITUR: Auto-Setup Node Fix (No PHP Tag Error), Safe DB
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.7)
+# FITUR: Auto-Setup Node, Safe DB, Final Permission Fix (Error 500)
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -100,17 +100,21 @@ process_addon() {
   echo -e "${CG}[✓] Addon Berhasil Disatukan!${R}"
 }
 
+# --- FIX TERBARU V4.7 (URUTAN DIUBAH AGAR ROOT TIDAK MEMBAJAK CACHE) ---
 fix_permissions_and_cache() {
   echo -e "${CY}[*] Memperbaiki Hak Akses dan Membersihkan Cache Sistem...${R}"
   cd "$PANEL_DIR"
-  chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
-  chmod -R 775 storage bootstrap/cache
-  rm -rf storage/framework/sessions/* 2>/dev/null || true
+  
+  # 1. Jalankan semua perintah artisan sebagai root terlebih dahulu
   php artisan view:clear
   php artisan config:clear
   php artisan cache:clear
   php artisan optimize:clear
-  chown -R $WEB_USER:$WEB_USER storage bootstrap/cache
+  rm -rf storage/framework/sessions/* 2>/dev/null || true
+  
+  # 2. SETELAH SELESAI, baru kita paksa kepemilikannya ke Nginx (Anti Error 500)
+  chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
+  chmod -R 775 storage bootstrap/cache
 }
 
 # ==========================================
@@ -153,7 +157,6 @@ if [ "$OPTION" == "1" ]; then
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
   
-  # FIX WARNA TEKS LOGIN
   sed -i 's|</head>|<style>input, input:focus { color: #1f2937 !important; }</style></head>|g' "$PANEL_DIR/resources/views/templates/wrapper.blade.php"
   
   cd "$PANEL_DIR"
@@ -163,17 +166,14 @@ if [ "$OPTION" == "1" ]; then
   sed -i "s|DB_USERNAME=.*|DB_USERNAME=$DB_USER|" .env
   sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=$DB_PASS|" .env
   
-  # FIX KOTAK MERAH SETTINGS
   sed -i "s|APP_ENVIRONMENT_ONLY=true|APP_ENVIRONMENT_ONLY=false|g" .env
   grep -q "APP_ENVIRONMENT_ONLY=false" .env || echo "APP_ENVIRONMENT_ONLY=false" >> .env
 
-  # --- OBAT ANTI ERROR MERAH (DUMMY KEY) ---
   grep -q "^APP_KEY=" .env && sed -i 's|^APP_KEY=.*|APP_KEY=base64:WnBqa1R6Y0N1R2R1a0hOa1R6Y0N1R2R1a0hOa1R6YWM=|' .env || echo "APP_KEY=base64:WnBqa1R6Y0N1R2R1a0hOa1R6Y0N1R2R1a0hOa1R6YWM=" >> .env
 
   echo -e "${CY}[*] Instalasi Composer (Backend)...${R}"
   composer install --no-dev --optimize-autoloader --no-interaction
   
-  # TIMPA DUMMY KEY DENGAN KEY ASLI
   php artisan key:generate --force
   
   echo -e ""
@@ -239,7 +239,6 @@ EOF
   php artisan migrate --force
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
   
-  # KODE DI BAWAH INI SUDAH DIPERBAIKI TANPA <?php
   cat << EOF > /var/www/pterodactyl/auto_setup.php
 \$loc = \Pterodactyl\Models\Location::firstOrCreate(
     ['short' => 'ID-1'],
@@ -274,6 +273,7 @@ EOF
   php artisan tinker < /var/www/pterodactyl/auto_setup.php
   rm -f /var/www/pterodactyl/auto_setup.php
   
+  # MEMANGGIL FUNGSI FIX PERMISSION PALING TERAKHIR
   fix_permissions_and_cache
   
   echo -e "\n${CY}[*] Mengonfigurasi SSL Certbot...${R}"
