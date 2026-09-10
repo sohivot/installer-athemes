@@ -155,6 +155,9 @@ if [ "$OPTION" == "1" ]; then
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
   
+  # --- FIX TEKS BUNGLON DI FORM LOGIN ---
+  sed -i 's|</head>|<style>input, input:focus { color: #1f2937 !important; }</style></head>|g' "$PANEL_DIR/resources/views/templates/wrapper.blade.php"
+  
   cd "$PANEL_DIR"
   [ ! -f ".env" ] && ([ -f ".env.example" ] && cp .env.example .env || touch .env)
   sed -i "s|APP_URL=.*|APP_URL=$PANEL_URL|" .env
@@ -246,6 +249,10 @@ elif [ "$OPTION" == "3" ]; then
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
   rsync -av --exclude='.git' /tmp/athemes_tmp/ "$PANEL_DIR/"
   rm -rf /tmp/athemes_tmp
+  
+  # --- FIX TEKS BUNGLON DI FORM LOGIN ---
+  sed -i 's|</head>|<style>input, input:focus { color: #1f2937 !important; }</style></head>|g' "$PANEL_DIR/resources/views/templates/wrapper.blade.php"
+  
   yarn install && NODE_OPTIONS=--max_old_space_size=4096 yarn build:production
   
   # PERBAIKAN PERMISSIONS & SESSIONS DIPANGGIL DI SINI JUGA
