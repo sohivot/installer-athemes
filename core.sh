@@ -1,13 +1,13 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.7)
-# FITUR: Auto-Setup Node, Safe DB, Final Permission Fix (Error 500)
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.8)
+# FITUR: Auto-Setup Node, Safe DB, Fix Perm, Auto-Detect DB
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
 
 PANEL_DIR="/var/www/pterodactyl"
-# Lokasi aman baru di folder home user agar tidak terhapus saat Uninstall
+# Lokasi aman di folder home user agar tidak terhapus saat Uninstall
 DB_DIR="$HOME/.athemes_installer"
 DB_FILE="$DB_DIR/db.txt"
 
@@ -100,19 +100,15 @@ process_addon() {
   echo -e "${CG}[✓] Addon Berhasil Disatukan!${R}"
 }
 
-# --- FIX TERBARU V4.7 (URUTAN DIUBAH AGAR ROOT TIDAK MEMBAJAK CACHE) ---
+# Fungsi Memperbaiki Hak Akses 
 fix_permissions_and_cache() {
   echo -e "${CY}[*] Memperbaiki Hak Akses dan Membersihkan Cache Sistem...${R}"
   cd "$PANEL_DIR"
-  
-  # 1. Jalankan semua perintah artisan sebagai root terlebih dahulu
   php artisan view:clear
   php artisan config:clear
   php artisan cache:clear
   php artisan optimize:clear
   rm -rf storage/framework/sessions/* 2>/dev/null || true
-  
-  # 2. SETELAH SELESAI, baru kita paksa kepemilikannya ke Nginx (Anti Error 500)
   chown -R $WEB_USER:$WEB_USER "$PANEL_DIR"
   chmod -R 775 storage bootstrap/cache
 }
@@ -138,6 +134,27 @@ if [ "$OPTION" == "1" ]; then
   echo -e "${CY}[*] Menyiapkan MariaDB...${R}"
   systemctl start mariadb || systemctl start mysql
   systemctl enable mariadb || systemctl enable mysql
+  
+  # ========================================================
+  # CEK DATABASE LAMA (Ide dari Rehan - Mengatasi Error 500)
+  # ========================================================
+  if mysql -e "SHOW DATABASES;" | grep -q "^${DB_NAME}$"; then
+    echo -e "\n${CR}========================================================================${R}"
+    echo -e "${CY}[!] PERINGATAN: Database '${DB_NAME}' sudah ada di sistem beserta datanya.${R}"
+    echo -e "${CY}[!] Jika ini adalah Install Ulang, menggunakan database lama bisa memicu${R}"
+    echo -e "${CY}    Error 500 karena Kunci Enkripsi (APP_KEY) yang baru tidak cocok.${R}"
+    echo -e "${CR}========================================================================${R}"
+    
+    read -p "Apakah Anda ingin MENGHAPUS & MERESET database tersebut? (y/n): " RESET_DB
+    if [[ "$RESET_DB" == "y" || "$RESET_DB" == "Y" ]]; then
+      mysql -e "DROP DATABASE \`${DB_NAME}\`;"
+      echo -e "${CG}[✓] Database lama berhasil dihapus! Melanjutkan Fresh Install...${R}"
+    else
+      echo -e "${CC}[*] Tetap menggunakan database lama. (Mengabaikan pembuatan akun baru)${R}"
+    fi
+  fi
+  # ========================================================
+
   mysql -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;"
   mysql -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
   mysql -e "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';"
@@ -237,7 +254,9 @@ EOF
   
   echo -e "\n${CY}[*] Menyiapkan Database, Akun Admin, dan Auto-Setup Node...${R}"
   php artisan migrate --force
-  php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
+  
+  # Pembuatan User dilindungi || true (Akan gagal tapi aman jika user pilih "n" di reset DB tadi)
+  php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction > /dev/null 2>&1 || true
   
   cat << EOF > /var/www/pterodactyl/auto_setup.php
 \$loc = \Pterodactyl\Models\Location::firstOrCreate(
@@ -273,7 +292,6 @@ EOF
   php artisan tinker < /var/www/pterodactyl/auto_setup.php
   rm -f /var/www/pterodactyl/auto_setup.php
   
-  # MEMANGGIL FUNGSI FIX PERMISSION PALING TERAKHIR
   fix_permissions_and_cache
   
   echo -e "\n${CY}[*] Mengonfigurasi SSL Certbot...${R}"
