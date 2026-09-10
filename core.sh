@@ -1,7 +1,7 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.5)
-# FITUR: Auto-Setup Node, Safe DB, Clean Composer (No Red Error)
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.6)
+# FITUR: Auto-Setup Node Fix (No PHP Tag Error), Safe DB
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -239,8 +239,8 @@ EOF
   php artisan migrate --force
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
   
+  # KODE DI BAWAH INI SUDAH DIPERBAIKI TANPA <?php
   cat << EOF > /var/www/pterodactyl/auto_setup.php
-<?php
 \$loc = \Pterodactyl\Models\Location::firstOrCreate(
     ['short' => 'ID-1'],
     ['long' => 'Indonesia Server']
@@ -338,6 +338,7 @@ elif [ "$OPTION" == "7" ]; then
   fi
 
 elif [ "$OPTION" == "8" ]; then
+  source "$DB_FILE" 2>/dev/null
   echo -e "\n${CR}====================================================${R}"
   echo -e "${CR} PERINGATAN BAHAYA: PROSES INI BERSIFAT PERMANEN! ${R}"
   echo -e "${CR}====================================================${R}"
@@ -359,6 +360,7 @@ elif [ "$OPTION" == "8" ]; then
       echo -e "\n${CY}[*] Menghapus File Panel & Web Server...${R}"
       systemctl stop pteroq 2>/dev/null
       rm -rf /var/www/pterodactyl
+      rm -rf /var/www/athemes
       rm -f /etc/nginx/sites-available/pterodactyl.conf
       rm -f /etc/nginx/sites-enabled/pterodactyl.conf
       rm -f /etc/nginx/conf.d/pterodactyl.conf
@@ -366,8 +368,9 @@ elif [ "$OPTION" == "8" ]; then
       rm -f /etc/systemd/system/pteroq.service
       systemctl daemon-reload
       
-      echo -e "${CY}[*] Menghapus Database 'panel'...${R}"
+      echo -e "${CY}[*] Menghapus Database Panel...${R}"
       mysql -e "DROP DATABASE IF EXISTS \`panel\`;"
+      mysql -e "DROP DATABASE IF EXISTS \`${DB_NAME}\`;"
       mysql -e "DROP USER IF EXISTS 'pterodactyl'@'localhost';"
       echo -e "${CG}[✓] Panel Pterodactyl berhasil dihapus!${R}"
     fi
