@@ -1,7 +1,7 @@
 #!/bin/bash
 # =======================================================
 # MODUL CORE: INSTALLATION & UPDATES (STABLE V4.1)
-# FITUR: Auto-Setup Node, Fix Permissions, Eggs, & Y/N Prompt
+# FITUR: Auto-Setup Node, Fix Permissions, & Eggs
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
