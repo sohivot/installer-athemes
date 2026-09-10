@@ -365,3 +365,76 @@ elif [ "$OPTION" == "7" ]; then
     echo -e "${CR}[!] Error: Pterodactyl belum terinstal di server ini! Jalankan Opsi 1 dulu.${R}"
   fi
 fi
+
+# ==========================================
+# OPSI 8: UNINSTALL PANEL / WINGS / FULL
+# ==========================================
+elif [ "$OPTION" == "8" ]; then
+  echo -e "\n${CR}====================================================${R}"
+  echo -e "${CR} PERINGATAN BAHAYA: PROSES INI BERSIFAT PERMANEN! ${R}"
+  echo -e "${CR}====================================================${R}"
+  
+  read -p "Apakah Anda ingin UNINSTALL PTERODACTYL PANEL? (y/n): " DEL_PANEL
+  read -p "Apakah Anda ingin UNINSTALL WINGS? (y/n): " DEL_WINGS
+  read -p "Apakah Anda ingin HAPUS KONFIGURASI SSL/CERTBOT? (y/n): " DEL_CERT
+  
+  echo -e "\nKonfirmasi Pilihan Anda:"
+  [[ "$DEL_PANEL" == "y" || "$DEL_PANEL" == "Y" ]] && echo - "- Hapus Panel (Database & File)"
+  [[ "$DEL_WINGS" == "y" || "$DEL_WINGS" == "Y" ]] && echo - "- Hapus Wings (Daemon & Data Server)"
+  [[ "$DEL_CERT" == "y" || "$DEL_CERT" == "Y" ]] && echo - "- Hapus SSL/Certbot Nginx"
+  
+  echo -e ""
+  read -p "Apakah Anda YAKIN ingin melanjutkan eksekusi ini? (y/n): " CONFIRM_ALL
+  
+  if [[ "$CONFIRM_ALL" == "y" || "$CONFIRM_ALL" == "Y" ]]; then
+    
+    # --- LOGIKA HAPUS PANEL ---
+    if [[ "$DEL_PANEL" == "y" || "$DEL_PANEL" == "Y" ]]; then
+      echo -e "\n${CY}[*] Menghapus File Panel & Web Server...${R}"
+      systemctl stop pteroq 2>/dev/null
+      rm -rf /var/www/pterodactyl
+      rm -rf /var/www/athemes
+      rm -f /etc/nginx/sites-available/pterodactyl.conf
+      rm -f /etc/nginx/sites-enabled/pterodactyl.conf
+      rm -f /etc/nginx/conf.d/pterodactyl.conf
+      systemctl restart nginx 2>/dev/null
+      rm -f /etc/systemd/system/pteroq.service
+      systemctl daemon-reload
+      
+      echo -e "${CY}[*] Menghapus Database 'panel'...${R}"
+      mysql -e "DROP DATABASE IF EXISTS \`panel\`;"
+      mysql -e "DROP USER IF EXISTS 'pterodactyl'@'localhost';"
+      echo -e "${CG}[✓] Panel Pterodactyl berhasil dihapus!${R}"
+    fi
+
+    # --- LOGIKA HAPUS WINGS ---
+    if [[ "$DEL_WINGS" == "y" || "$DEL_WINGS" == "Y" ]]; then
+      echo -e "\n${CY}[*] Menghapus Wings & Konfigurasi Sistem...${R}"
+      systemctl stop wings 2>/dev/null
+      rm -rf /etc/pterodactyl
+      rm -rf /var/lib/pterodactyl
+      rm -f /usr/local/bin/wings
+      rm -f /etc/systemd/system/wings.service
+      systemctl daemon-reload
+      echo -e "${CG}[✓] Wings berhasil dihapus!${R}"
+    fi
+
+    # --- LOGIKA HAPUS CERTBOT/SSL ---
+    if [[ "$DEL_CERT" == "y" || "$DEL_CERT" == "Y" ]]; then
+      echo -e "\n${CY}[*] Membersihkan Konfigurasi SSL/Certbot...${R}"
+      if [ "$PKG_MGR" == "apt" ]; then
+        apt-get remove --purge -y certbot python3-certbot-nginx
+      else
+        yum remove -y certbot python3-certbot-nginx
+      fi
+      rm -rf /etc/letsencrypt
+      rm -rf /var/lib/letsencrypt
+      rm -rf /var/log/letsencrypt
+      echo -e "${CG}[✓] SSL dan Certbot berhasil dibersihkan!${R}"
+    fi
+    
+    echo -e "\n${CG}[✓] Proses Uninstall Selesai!${R}"
+  else
+    echo -e "\n${CC}[*] Proses uninstall dibatalkan. Kembali ke terminal...${R}"
+  fi
+fi
