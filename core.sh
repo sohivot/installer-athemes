@@ -1,7 +1,7 @@
 #!/bin/bash
 # =======================================================
-# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.1)
-# FITUR: Auto-Setup Node, Fix Permissions, & Eggs
+# MODUL CORE: INSTALLATION & UPDATES (STABLE V4.2)
+# FITUR: Auto-Setup Node, Fix Permissions, Eggs, Y/N Prompt, & Fix Env
 # =======================================================
 OPTION=$1
 CG="\e[32m"; CR="\e[31m"; CY="\e[33m"; CC="\e[36m"; R="\e[0m"
@@ -152,6 +152,7 @@ if [ "$OPTION" == "1" ]; then
   rm -f /tmp/panel.tar.gz
   
   echo -e "${CY}[*] Menimpa dengan tema aThemes dari GitHub...${R}"
+  # Pindah ke /tmp agar git clone terhindar dari error "working directory"
   cd /tmp 
   rm -rf /tmp/athemes_tmp
   git clone https://github.com/AlnoXD404/athemes.git /tmp/athemes_tmp
@@ -167,6 +168,11 @@ if [ "$OPTION" == "1" ]; then
   sed -i "s|DB_DATABASE=.*|DB_DATABASE=$DB_NAME|" .env
   sed -i "s|DB_USERNAME=.*|DB_USERNAME=$DB_USER|" .env
   sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=$DB_PASS|" .env
+  
+  # --- FIX KOTAK MERAH DI SETTINGS ---
+  sed -i "s|APP_ENVIRONMENT_ONLY=true|APP_ENVIRONMENT_ONLY=false|g" .env
+  grep -q "APP_ENVIRONMENT_ONLY=false" .env || echo "APP_ENVIRONMENT_ONLY=false" >> .env
+  # -----------------------------------
 
   echo -e "${CY}[*] Instalasi Composer (Backend)...${R}"
   composer install --no-dev --optimize-autoloader --no-interaction
