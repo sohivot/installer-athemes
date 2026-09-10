@@ -11,4 +11,9 @@ echo -e "${CC} [7] Pasang/Update Default Eggs Pterodactyl${R}"
 echo -e "${CY}======================================${R}"
 read -p " Pilih Opsi [1-7]: " PILIHAN
 
-bash core.sh $PILIHAN
+# --- MENGHUBUNGKAN KE MESIN CORE.SH ---
+echo -e "\n[*] Memuat modul inti (core.sh)..."
+curl -sLo /tmp/core.sh https://raw.githubusercontent.com/sohivot/installer-athemes/main/core.sh
+
+# Menjalankan core.sh dengan membawa nomor pilihan
+bash /tmp/core.sh $PILIHAN
