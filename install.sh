@@ -7,13 +7,19 @@ echo -e " [3] Update / Rebuild Tema UI"
 echo -e " [4] Install / Update Wings"
 echo -e " [5] Hapus Kredensial (db.txt)"
 echo -e " [6] Pasang Addon Kustom (.zip)"
-echo -e "${CC} [7] Pasang/Update Default Eggs Pterodactyl${R}"
+echo -e " [7] Pasang/Update Default Eggs Pterodactyl"
+echo -e "${CR} [0] Exit / Keluar Installer${R}"
 echo -e "${CY}======================================${R}"
-read -p " Pilih Opsi [1-7]: " PILIHAN
+read -p " Pilih Opsi [0-7]: " PILIHAN
 
-# --- MENGHUBUNGKAN KE MESIN CORE.SH ---
+# Logika untuk keluar
+if [ "$PILIHAN" == "0" ]; then
+  echo -e "\n${CG}[*] Terima kasih telah menggunakan installer ini! Keluar...${R}\n"
+  exit 0
+fi
+
+# Jika bukan 0, lanjut download dan eksekusi core.sh
 echo -e "\n[*] Memuat modul inti (core.sh)..."
 curl -sLo /tmp/core.sh https://raw.githubusercontent.com/sohivot/installer-athemes/main/core.sh
 
-# Menjalankan core.sh dengan membawa nomor pilihan
 bash /tmp/core.sh $PILIHAN
