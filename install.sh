@@ -33,9 +33,21 @@ if [[ "$OPTION" == "0" ]]; then
   exit 0
 fi
 
-if [ -f "core.sh" ]; then
-  bash core.sh "$OPTION"
+# ROUTER: Pisahkan eksekusi berdasarkan file
+if [[ "$OPTION" == "1" || "$OPTION" == "2" || "$OPTION" == "3" ]]; then
+  if [ -f "core.sh" ]; then
+    bash core.sh "$OPTION"
+  else
+    curl -sL "https://install.rensth.biz.id/core.sh" -o /tmp/core.sh
+    bash /tmp/core.sh "$OPTION"
+  fi
+elif [[ "$OPTION" == "4" || "$OPTION" == "5" ]]; then
+  if [ -f "uninstall.sh" ]; then
+    bash uninstall.sh "$OPTION"
+  else
+    curl -sL "https://install.rensth.biz.id/uninstall.sh" -o /tmp/uninstall.sh
+    bash /tmp/uninstall.sh "$OPTION"
+  fi
 else
-  curl -sL "https://install.rensth.biz.id/core.sh" -o /tmp/core.sh
-  bash /tmp/core.sh "$OPTION"
+  echo -e "Pilihan tidak valid!"
 fi
