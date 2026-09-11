@@ -7,6 +7,7 @@ G='\033[0;32m'
 B='\033[0;36m'
 Y='\033[1;33m'
 N='\033[0m'
+CR='\033[0;31m'
 
 clear
 echo -e "${B}==================================================================${N}"
@@ -39,15 +40,26 @@ if [[ "$OPTION" == "1" || "$OPTION" == "2" || "$OPTION" == "3" ]]; then
     bash core.sh "$OPTION"
   else
     curl -sL "https://install.rensth.biz.id/core.sh" -o /tmp/core.sh
-    bash /tmp/core.sh "$OPTION"
+    # Cek apakah file core berhasil didownload (bukan nyasar ke install.sh)
+    if grep -q "MODUL CORE" /tmp/core.sh; then
+      bash /tmp/core.sh "$OPTION"
+    else
+      echo -e "\n${CR}[!] ERROR: File core.sh gagal didownload (404). Pastikan file sudah di-upload ke server!${N}"
+    fi
   fi
 elif [[ "$OPTION" == "4" || "$OPTION" == "5" ]]; then
   if [ -f "uninstall.sh" ]; then
     bash uninstall.sh "$OPTION"
   else
     curl -sL "https://install.rensth.biz.id/uninstall.sh" -o /tmp/uninstall.sh
-    bash /tmp/uninstall.sh "$OPTION"
+    # Cek apakah file uninstall berhasil didownload (bukan nyasar ke install.sh)
+    if grep -q "MODUL UNINSTALLER" /tmp/uninstall.sh; then
+      bash /tmp/uninstall.sh "$OPTION"
+    else
+      echo -e "\n${CR}[!] ERROR: File uninstall.sh gagal didownload (404 Not Found).${N}"
+      echo -e "${Y}Pesan System: Exeren, tolong pastikan kamu sudah membuat dan mengupload file 'uninstall.sh' ke GitHub/Hosting milikmu!${N}"
+    fi
   fi
 else
-  echo -e "Pilihan tidak valid!"
+  echo -e "${CR}Pilihan tidak valid!${N}"
 fi
