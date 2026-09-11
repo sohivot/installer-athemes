@@ -245,7 +245,6 @@ EOF
   php artisan p:user:make --email="$ADMIN_EMAIL" --username="$ADMIN_USER" --name-first="$ADMIN_FIRST" --name-last="$ADMIN_LAST" --password="$ADMIN_PASS" --admin=1 --no-interaction || true
   
   cat << EOF > /var/www/pterodactyl/auto_setup.php
-<?php
 \$loc = \Pterodactyl\Models\Location::firstOrCreate(
     ['short' => 'ID-1'],
     ['long' => 'Indonesia Server']
